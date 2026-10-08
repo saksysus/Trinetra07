@@ -1,0 +1,3 @@
+# SAMPLE DATA ONLY - replace with measured field values
+sample_id,distance_m,rssi_dbm,node_id,notes
+sample-001,10,-78,node_1,example row
