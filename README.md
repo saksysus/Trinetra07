@@ -289,3 +289,18 @@ TRINETRA is a proposed safety-assistance system. The prototype and
 algorithms must be validated with actual mine data, vehicle
 characteristics, site geometry, environmental conditions, and applicable
 mine-safety requirements before operational deployment.
+
+## Repository Layout
+
+```text
+TRINETRA07/
+├── firmware/                 # Arduino sketches for vehicle, roadside and receiver units
+├── vision/                   # Dehazing + visibility estimation Python modules
+├── communication/            # LoRa communication docs and protocol drafts
+├── dashboard/                # Frontend/backend scaffold for monitoring UI
+├── hardware/                 # Circuit, schematic, PCB and BOM artifacts
+├── tests/                    # RSSI/fog/radar/field test data and placeholders
+├── docs/                     # Architecture, flowcharts, feasibility and technical docs
+├── media/                    # Prototype/demo/dashboard/presentation media assets
+└── requirements.txt          # Python dependencies for vision modules
+```

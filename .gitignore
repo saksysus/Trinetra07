@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Arduino / embedded build artifacts
+*.elf
+*.hex
+*.bin
+*.map
+*.eep
+*.lst
+*.o
+*.a
+build/
+
+# IDE/editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Local environment
+.env
+.env.*
+*.local
+
+# Generated media/export artifacts
+media/**/exports/
+media/**/renders/
+*.mp4
+*.mov
+*.avi
+*.mkv
