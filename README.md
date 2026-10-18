@@ -1,291 +1,220 @@
-# TRINETRA - Visibility & Safe-Speed Assistant for Open-Cast Mines
+# TRINETRA
 
-TRINETRA is a safety and operational-assistance system designed for
-**open-cast iron ore mines operating in fog and low-visibility
-conditions**. It combines onboard sensing, roadside infrastructure,
-sensor fusion, computer vision, positioning, and real-time decision
-support to help mine vehicles operate more safely without depending
-entirely on network connectivity.
+**Block signalling for mine haul roads in fog.**
 
-## Problem
+Team EdgeX Hyperions · Smart India Hackathon 2026 · Problem Statement 26007 (NMDC Limited)
+*Safe and Efficient Operation of Mine Vehicles in Fog and Low-Visibility Conditions in Open Cast Iron Ore Mines*
 
-During severe monsoon and fog conditions, visibility in open-cast mines
-can fall to only a few metres. This makes it difficult for haul-truck
-drivers to detect:
+---
 
--   Other mine vehicles
--   Obstacles and rocks
--   Road boundaries and turns
--   Safe following distances
--   Changing road and environmental conditions
+## What this is
 
-Conventional camera-only systems can become unreliable when visibility
-deteriorates. TRINETRA addresses this limitation through **multi-layer
-perception and local safety logic**.
+In the monsoon, the Bailadila iron ore mines sit inside cloud. On the haul roads a driver can see about 3 to 5 metres.
 
-## Proposed Solution
+A loaded dumper at the 30 km/h DGMS limit needs about 30 metres to stop (DGMS stopping-distance rule, 6.25% grade). No sensor on the truck can close that gap, so the usual answer is to slow down or stop.
 
-TRINETRA follows an end-to-end pipeline:
+TRINETRA takes a different approach. It does not try to make the dumper see further. The **haul road** tells the dumper what is ahead, using the same idea railways use: split the road into blocks, know which blocks are occupied, and give the next driver a safe speed.
 
-**Detection → Processing → Decision → Driver Alert**
+> Most systems answer "is something in my way?"
+> TRINETRA answers "how fast may I go?"
 
-The system combines:
+## Why not just better cameras
 
--   **77 GHz mmWave radar** for object detection in low visibility
--   **Camera + dehazing** for enhanced visual awareness
--   **GPS** for vehicle positioning
--   **LoRa** for vehicle-to-roadside/control communication
--   **Sensor fusion** for more reliable situational awareness
--   **Safe-speed calculation** using stopping distance, vehicle
-    separation, and road gradient
--   **Roadside nodes** for infrastructure-assisted awareness and
-    positioning
--   **Driver dashboard** for real-time alerts and guidance
+- A published CSIR-CIMFR system tested at Bacheli, Bailadila raised visibility from about 5 m to 30–40 m using IR cameras and illuminators. That helps, but at 30 km/h it leaves little margin and says nothing about a truck around the bend.
+- Systems where vehicles share their own positions only see vehicles that carry the radio. A contractor jeep, a person, or a dumper with dead electronics stays invisible.
+- On the same hardware, the same paper reports that standard CLAHE and dark-channel-prior dehazing reached only 15–20 m. We implemented both, so the limit can be shown rather than just claimed.
 
-## Key Features
+## How it works
 
-### 1. Dual-Layer Protection
+1. A roadside node detects a vehicle passing.
+2. If the vehicle is not carrying our radio tag, it is logged as an **UNIDENTIFIED VEHICLE** and tracked anyway.
+3. The node tells every dumper over radio that the block is occupied.
+4. A safe speed is worked out from the DGMS stopping-distance rule:
 
-Onboard sensors provide immediate hazard detection, while roadside nodes
-provide wider-area traffic awareness.
-
-### 2. Local Onboard Safety
-
-Critical hazard detection and alerts can operate locally, reducing
-dependence on continuous network connectivity.
-
-### 3. Fog-Aware Perception
-
-The camera feed can use dehazing during poor visibility, while mmWave
-radar provides an additional sensing layer.
-
-### 4. Safe-Speed Assistance
-
-Instead of only warning the driver about an obstacle, TRINETRA can
-calculate a recommended safe speed using relevant vehicle and road
-conditions.
-
-### 5. Position & Route Awareness
-
-GPS and roadside infrastructure support vehicle localization, route
-awareness, and positioning correction.
-
-### 6. Fail-Restrictive Operation
-
-If communication or infrastructure becomes unavailable, the system is
-designed to move toward a more restrictive operating state rather than
-assuming normal conditions.
-
-### 7. Advisory-First Deployment
-
-The initial implementation is advisory, allowing field validation and
-operator feedback before considering higher levels of intervention.
-
-## System Architecture
-
-``` text
-                    ┌─────────────────────┐
-                    │   Mine Environment  │
-                    │ Fog / Rain / Dust   │
-                    └──────────┬──────────┘
-                               │
-                ┌──────────────┴──────────────┐
-                │                             │
-        ┌───────▼───────┐             ┌───────▼────────┐
-        │ Onboard Unit  │             │ Roadside Node  │
-        │               │             │                │
-        │ Camera        │             │ LoRa           │
-        │ 77 GHz Radar  │             │ GPS/Position   │
-        │ GPS           │             │ Local sensing  │
-        │ Processing    │             │                │
-        └───────┬───────┘             └───────┬────────┘
-                │                             │
-                └──────────────┬──────────────┘
-                               │
-                       ┌───────▼────────┐
-                       │  Sensor Fusion │
-                       │ + AI Processing│
-                       └───────┬────────┘
-                               │
-                       ┌───────▼────────┐
-                       │ Decision Engine│
-                       │                │
-                       │ Safe Speed     │
-                       │ Hazard Status  │
-                       │ Alerts         │
-                       └───────┬────────┘
-                               │
-                       ┌───────▼─────────┐
-                       │ Driver / Control│
-                       │ Room Dashboard  │
-                       └─────────────────┘
+```
+safe speed = sqrt( gap × (46 − 2.6 × slope) )      capped at 30 km/h
 ```
 
-## Hardware
+5. The driver is shown the advisory. If a link or node fails, the system shows a **degraded** state and lowers the advised speed instead of going quiet.
 
-The prototype architecture can include:
+**Two independent safety layers**
 
--   ESP32-S3-based vehicle controller
--   77 GHz mmWave radar
--   Camera module
--   GPS/GNSS receiver
--   LoRa communication module
--   Raspberry Pi for edge processing where required
--   Roadside communication/positioning nodes
--   Power supply and rugged enclosures
+| Layer | Where | Job | Needs network? |
+|---|---|---|---|
+| Road | Roadside nodes | Looks ahead beyond what a truck sensor can see | Yes (radio mesh) |
+| Dumper | On the truck | Last-100 m proximity sensing, road-edge distance, tilt | No |
 
-The architecture is modular so individual sensing or communication
-components can be upgraded without redesigning the complete system.
+Either layer alone still protects the driver.
 
-## Software & Processing
+## Current status
 
-The software pipeline is designed around real-time perception and
-decision support:
+This repository holds the **proof of concept** (a scaled model). The full prototype is a design, described at the bottom.
 
-1.  Capture camera and sensor data
-2.  Estimate visibility and environmental conditions
-3.  Apply camera enhancement/dehazing when required
-4.  Detect vehicles and obstacles
-5.  Fuse radar, camera, and positioning information
-6.  Estimate relative distance and vehicle state
-7.  Calculate safe operating speed
-8.  Generate driver warnings and guidance
-9.  Communicate relevant information to roadside/control infrastructure
+### Working
 
-## Safe-Speed Concept
+| Part | Detail |
+|---|---|
+| Fog measurement | Camera looks at a fixed 8×8 checkerboard; visibility in metres from Koschmieder's law. Reading falls when the lens is fogged and recovers. |
+| Dehazing | CLAHE and Dark Channel Prior, running on the Raspberry Pi |
+| Four-panel viewer | Raw / CLAHE / DCP / live visibility reading |
+| Data logging | SQLite, plus auto-labelled images for a fog classifier |
+| Bridge | Reads the car's state, applies the DGMS formula, publishes an advisory |
+| Track node | ESP32 + HC-SR04 ultrasonic sensor, ESP-NOW to the car |
+| Moving car | ESP32, web page, L298N 4-wheel drive, ESP-NOW receiver |
+| Stationary dumper | ESP32 + TF-Luna style LiDAR + ILI9341 TFT, sends "MOVE LEFT" |
 
-TRINETRA extends conventional hazard detection by connecting perception
-to an operating-speed recommendation.
+### In progress or not built yet
 
-The decision considers factors such as:
+| Part | Status |
+|---|---|
+| Track node "BLOCK OCCUPIED / UNIDENTIFIED VEHICLE" messages | Updated firmware written; confirm it is flashed |
+| Driver and control-room web pages | Designed; generation in progress |
+| Fog-level classifier (random forest) | Data collection running; not trained |
+| Object classifier | Exists separately; not wired into this pipeline |
+| 24 GHz radar (HLK-LD2452) | Ordered; not integrated |
+| LoRa | Modules in hand; the PoC currently runs on ESP-NOW |
+| Radar target classifier, simulator, shift planner | Not built |
 
--   Vehicle separation
--   Vehicle speed
--   Stopping distance
--   Road gradient
--   Visibility conditions
--   Detected hazards
+## Honest limits of the PoC
 
-The implementation should be validated against applicable mine-safety
-requirements and operating procedures before deployment.
+- Uses an **ultrasonic sensor** at the track node and a **LiDAR** at the stationary dumper as stand-ins for radar.
+- Radio is **ESP-NOW**, not LoRa.
+- "Tagged or untagged" is judged from the car's signal strength (RSSI). That is a proxy: if the tagged car is also close to the node, it can be misjudged.
+- The gap values the bridge uses (0 m, 5 m, 250 m) are demo stand-ins, not measured distances.
+- Safe speed is calculated on the Raspberry Pi here. In the intended design it runs on the dumper unit so it works with no network.
+- The camera-based visibility reading only means something while the camera and target are fixed in place.
+- Only one real car is present. Any other vehicles shown on a dashboard are not real.
 
-## Communication Strategy
+## Hardware used in the PoC
 
-TRINETRA uses a layered communication approach:
+| Item | Role |
+|---|---|
+| ESP32 DevKit (3) | Track node, moving car, stationary dumper |
+| Raspberry Pi 4B (8 GB) | Fog measurement, dehazing, MQTT broker, bridge, web server |
+| USB webcam | Visibility measurement and dehazing input |
+| HC-SR04 ultrasonic | Track node obstacle sensor |
+| TF-Luna style LiDAR | Stationary dumper range sensor |
+| ILI9341 TFT | Stationary dumper display |
+| L298N driver, 4-wheel chassis | Moving car |
+| MLX90640 thermal camera | Available for sensor comparison |
+| HLK-LD2452 24 GHz radar | Ordered |
+| Ultrasonic fogger | Fog box |
 
--   **Onboard processing:** immediate safety decisions
--   **LoRa:** low-bandwidth long-range coordination with roadside
-    infrastructure
--   **GPS/GNSS:** positioning and route awareness
--   **Roadside nodes:** infrastructure-assisted communication and
-    localization
+## Repository layout (Pi side)
 
-This allows the vehicle to retain critical local safety functionality
-even when communication is temporarily unavailable.
-
-## Feasibility
-
-### Technical Feasibility
-
-The system uses commercially available sensing, processing, positioning,
-and communication technologies in a modular architecture.
-
-### Economic Viability
-
-The proposed architecture uses relatively low-cost roadside and vehicle
-units and avoids requiring every safety function to be implemented
-through expensive per-truck infrastructure.
-
-### Operational Viability
-
-Roadside nodes can support mixed fleets, while digital route information
-can be updated as mine layouts change.
-
-### Safety & Implementation Feasibility
-
-The architecture includes local safety logic, fail-restrictive
-behaviour, positioning checks, and an advisory-first deployment strategy
-to support gradual field validation.
-
-## Challenges & Mitigations
-
-  -----------------------------------------------------------------------
-  Challenge                           Mitigation
-  ----------------------------------- -----------------------------------
-  Dense fog reduces camera visibility 77 GHz radar + camera dehazing
-
-  GPS uncertainty in mine terrain     Roadside correction + sensor fusion
-
-  Communication loss                  Local onboard safety logic
-
-  Harsh mining environment            Modular and ruggedized hardware
-
-  Mixed fleet and driver adoption     Advisory-first deployment
-  -----------------------------------------------------------------------
-
-## Dashboard
-
-The TRINETRA dashboard provides a centralized view of:
-
--   Current vehicle speed
--   Recommended safe speed
--   Visibility level
--   Detected vehicles/obstacles
--   Relative distance and speed
--   Route and GPS status
--   Sensor health
--   Environmental conditions
--   System status
--   Driver alerts
-
-## Deployment Roadmap
-
-``` text
-Prototype
-   ↓
-Laboratory Validation
-   ↓
-Controlled Mine Trial
-   ↓
-Advisory Deployment
-   ↓
-Performance Validation
-   ↓
-Scaled Mine Deployment
+```
+calibrate.py     one-time camera calibration (gives C0 and the target box)
+vision.py        fog in metres, dehazing, saves frames, publishes to MQTT
+dehaze_dcp.py    Dark Channel Prior dehazing
+panel.py         four-panel viewer
+bridge.py        reads car state, computes advisory, publishes to MQTT
+ui_server.py     serves the web pages, data and camera streams
+fogfeat.py       image features for the fog classifier
+train_fog.py     trains the fog classifier
+data/            auto-saved training images: clear / light / dense
+ui/              driver.html and control.html
 ```
 
-## Expected Impact
+The three ESP32 sketches (track node, moving car, stationary dumper) are separate Arduino sketches.
 
-TRINETRA aims to:
+## Setup (Raspberry Pi)
 
--   Improve driver awareness during low visibility
--   Reduce collision risk between mine vehicles
--   Provide speed guidance based on actual road conditions
--   Maintain local safety functionality during communication loss
--   Support continuous and safer haulage operations
--   Provide a scalable architecture for different mine routes and fleets
+```bash
+sudo apt update
+sudo apt install -y python3-opencv mosquitto mosquitto-clients python3-pip
+pip3 install paho-mqtt numpy scikit-learn joblib requests flask --break-system-packages
 
-## Project Status
+echo -e "listener 1883\nallow_anonymous true" | sudo tee /etc/mosquitto/conf.d/local.conf
+sudo systemctl enable --now mosquitto
+```
 
-**Stage:** Prototype / Concept Validation
+Join the car's Wi-Fi network (name and password are set in the car firmware), then check the link:
 
-The system architecture, dashboard, sensing strategy, communication
-approach, and safety logic are designed for prototype development and
-controlled validation. Real-world deployment would require site-specific
-testing, calibration, ruggedization, and compliance validation.
+```bash
+curl http://192.168.4.1/state
+```
 
-## Team
+### Calibrate the camera (once, and again if the camera or target moves)
 
-**TRINETRA --- Safe Haulage. Continuous Operations.**
+1. Print an 8×8 black and white checkerboard and fix it in place.
+2. Fix the camera in place and measure the distance in metres.
+3. Run `python3 calibrate.py`, move the green box fully inside the checkerboard, press `q`.
+4. Copy the printed `C0`, `ROI` and your measured distance into the top of `vision.py`.
 
-Developed as a solution for the Smart India Hackathon problem statement:
+Current values in the repo: `D = 2.7`, `C0 = 0.7234`, `ROI = (110, 10, 240, 180)`.
 
-**"Safe and Efficient Operation of Mine Vehicles in Fog and
-Low-Visibility Conditions in Open Cast Iron Ore Mines."**
+## Run
 
-## Disclaimer
+Use one terminal per program.
 
-TRINETRA is a proposed safety-assistance system. The prototype and
-algorithms must be validated with actual mine data, vehicle
-characteristics, site geometry, environmental conditions, and applicable
-mine-safety requirements before operational deployment.
+| Terminal 1 | Terminal 2 | Terminal 3 |
+|---|---|---|
+| `python3 vision.py` | `python3 bridge.py` | `python3 ui_server.py` |
+
+Stop a program with `Ctrl+C` in its own terminal. If the camera reports busy, stop leftovers with `pkill -f vision.py`.
+
+| Address | Shows |
+|---|---|
+| `http://192.168.4.1` | Moving car's own page (alerts, drive controls) |
+| `http://localhost:8000/driver` | Driver dashboard on the Pi |
+| `http://192.168.4.50:8000/control` | Control-room page (Pi set to a fixed address) |
+
+## Data flow
+
+**Radio message (ESP-NOW, shared by all three boards), 65 bytes:**
+
+```c
+typedef struct {
+  uint8_t messageType;
+  char    message[64];
+} AlertPacket;
+```
+
+| Type | Meaning |
+|---|---|
+| 1 | Block occupied (track node) |
+| 2 | Block clear (track node) |
+| 3 | Command from the stationary dumper ("MOVE LEFT") |
+| 4 | Car heartbeat |
+| 5 | Node heartbeat |
+
+**MQTT topics on the Pi:**
+
+| Topic | Content |
+|---|---|
+| `trinetra/vision/visibility` | Visibility in metres, contrast, fog level |
+| `trinetra/vision/fog_ml` | Fog level from the classifier (only if trained) |
+| `trinetra/car/state` | Car state copied from its web page data |
+| `trinetra/advisory` | Aspect (GREEN / AMBER / RED / DEGRADED), safe speed, reason |
+
+**Advisory rules in `bridge.py`:**
+
+| Condition | Aspect |
+|---|---|
+| Stationary dumper command active | RED |
+| Track node block occupied | AMBER |
+| Nothing active | GREEN |
+| Car link lost | DEGRADED (8 km/h) |
+
+## Planned prototype (design only, not built)
+
+| Part | Plan |
+|---|---|
+| Dumper unit | ESP32-S3, 77 GHz front radar, 24 GHz side radar, LoRa, GNSS, IMU, barometer, SD log, display, voice |
+| Standard node | ESP32-S3, 24 GHz radar, LoRa, GNSS timing, corner reflectors |
+| Sentinel node | Standard node plus 77 GHz radar, camera with reference target, thermal |
+| Radio | LoRa SX1262 at 866.1 MHz (licence-exempt in India under GSR 564(E)) |
+| Positioning | Distance measured along a surveyed road map; position resets at every node |
+| Offline tools | A simulator running the same block logic, and a shift planner |
+
+Cost figures from the plan are component estimates only (about ₹18,000 per dumper unit, ₹8,000 per standard node, ₹25,000 per sentinel node). They exclude integration, installation and certification.
+
+**Not claimed:** detecting a rockfall that lands between nodes; telling the driver the road is clear; controlling brakes, throttle or steering. The system is advisory only. Radio range over real hill terrain and node maintenance still need field testing.
+
+## References
+
+- Chaulya et al., *Smart driving assistance system for mining operations in foggy environments*, Discover Electronics 2:13 (2025). DOI 10.1007/s44291-025-00054-1
+- Chaulya et al., *V2X, GNSS, radar, and camera-based intelligent system for adaptive control of heavy mining vehicles during foggy weather*, Journal of Quality Technology 56(4), 2024
+- He, Sun and Tang, *Single Image Haze Removal Using Dark Channel Prior*, IEEE TPAMI, 2011
+- DGMS (Tech) Circular 06 of 2020 and Circular 09 of 2008
+- EMESRT proximity detection levels, ISO 21815
