@@ -130,7 +130,7 @@
 // Because this is larger than the trigger distance, the system
 // has hysteresis:
 //
-//     TRIGGER <= 40 cm
+//     TRIGGER <= 25 cm
 //     CLEAR   >= 32 cm
 //
 // This prevents the alert from rapidly switching on/off if the
