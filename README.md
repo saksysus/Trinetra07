@@ -198,6 +198,13 @@ typedef struct {
 
 ## Planned prototype (design only, not built)
 
+## Planned prototype (design only, not built)
+
+<p align="center">
+  <img src="images/dumper-unit.png" alt="TRINETRA dumper unit: GPS, LoRa, dehazing camera, 24 GHz radar, Raspberry Pi 4B + ESP32-S3 processing unit, driver display" width="700">
+</p>
+<p align="center"><em>Concept: sensors and processing unit on the haul dumper. Not built in the PoC.</em></p>
+
 | Part | Plan |
 |---|---|
 | Dumper unit | ESP32-S3, 77 GHz front radar, 24 GHz side radar, LoRa, GNSS, IMU, barometer, SD log, display, voice |
