@@ -19,7 +19,10 @@ The vision output is fused with radar and LoRa data on the Raspberry Pi to class
 ```
 vision/
 ├── README.md     <- this file
-└── dehaze.py     <- real-time dehazing (webcam or video file)
+├── dehaze.py     <- real-time dehazing (webcam or video file)
+└── images/
+    ├── hazy.jpg      <- original frame
+    └── dehazed.jpg   <- same frame after dehaze.py
 ```
 
 ## Dehazing
@@ -32,6 +35,12 @@ vision/
 4. Recover the scene: `J = (I - A) / max(t, t0) + A`
 
 To keep it usable on the Pi, the maps are computed at reduced resolution (`--scale`) and the transmission map is upscaled before being applied to the full-resolution frame.
+
+### Result
+
+| Original (hazy) | Dehazed |
+|:---:|:---:|
+| ![Original hazy frame](images/hazy.jpg) | ![Dehazed frame](images/dehazed.jpg) |
 
 ### Install
 
